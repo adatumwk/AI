@@ -8,9 +8,12 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (ПОПЫТКА 7) ---
-# Правильный путь для Kerykeion v1.0.0+
-from kerykeion.api.factory import AstrologicalSubjectFactory
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2) ---
+# 1. Фабрика для запроса данных
+from kerykeion.schemas.requests_models import AstrologicalSubjectRequest
+# 2. Фабрика для расчета
+from kerykeion.chart_data_factory import ChartDataFactory
+# --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
@@ -21,11 +24,11 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler(jobstores={'default': SQLAlchemyJobStore(url=DB_JOBS)})
 
-# --- НОВАЯ ФУНКЦИЯ КЭШИРОВАНИЯ (НА AstrologicalSubjectFactory) ---
+# --- НОВАЯ ФУНКЦИЯ КЭШИРОВАНИЯ (НА ChartDataFactory) ---
 async def cache_daily_transits():
     """
     Рассчитывает транзиты на завтра и сохраняет их в кэш (БД).
-    Использует kerykeion (v1.0.0+).
+    Использует kerykeion (v5.0.2).
     """
     try:
         logger.info("[КЭШЕР]: Начинаю кэширование транзитов на завтра...")
@@ -33,9 +36,10 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
         
-        # 2. Создаем "фабрику" для расчета транзитов.
-        # Используем Лондон (UTC) и 12:00 дня как стандарт.
-        factory = AstrologicalSubjectFactory(
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API) ---
+        
+        # 2. Создаем "объект запроса" pydantic (из kerykeion.schemas.requests_models)
+        request_data = AstrologicalSubjectRequest(
             name="Transits", 
             day=tomorrow_date.day, 
             month=tomorrow_date.month, 
@@ -45,11 +49,17 @@ async def cache_daily_transits():
             city="London", 
             nation="UK"
         )
-        
-        # 3. Получаем рассчитанный объект ("субъект")
-        subject = factory.get_subject()
 
-        # 4. Собираем данные в словарь
+        # 3. Создаем "фабрику" для расчетов (из kerykeion.chart_data_factory)
+        factory = ChartDataFactory(request_data)
+        
+        # 4. Получаем рассчитанный объект ("субъект")
+        # Он называется .subject, а не .create_subject()
+        subject = factory.subject
+        
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+        # 5. Собираем данные в словарь
         planet_data = {}
         
         # Собираем положения 10 основных планет
@@ -62,7 +72,7 @@ async def cache_daily_transits():
                 "lon": round(planet_obj.lon, 2) # Градус в знаке
             }
             
-        # 5. Превращаем в JSON и сохраняем в БД
+        # 6. Превращаем в JSON и сохраняем в БД
         data_json = json.dumps(planet_data)
         
         async with aiosqlite.connect(DB_HOROSCOPES) as db:
@@ -72,7 +82,7 @@ async def cache_daily_transits():
             )
             await db.commit()
             
-        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы (kerykeion v1+).")
+        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы (kerykeion v5+).")
         
     except Exception as e:
         logger.error(f"[КЭШЕР]: Ошибка при кэшировании транзитов: {e}", exc_info=True)
