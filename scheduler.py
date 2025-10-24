@@ -9,10 +9,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 # --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2) ---
-# 1. Модель для запроса данных
-from kerykeion.schemas.kr_models import AstrologicalSubjectModel
-# 2. Фабрика для расчета
+# Нам нужна только фабрика для расчетов
 from kerykeion.chart_data_factory import ChartDataFactory
+# AstrologicalSubjectModel не нужен для импорта, фабрика его вернет
 # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 from config import BOT_TOKEN
@@ -36,10 +35,14 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
 
-        # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API - ФИНАЛ) ---
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API - ФИНАЛ!) ---
 
-        # 2. Создаем "объект запроса" pydantic (используя AstrologicalSubjectModel)
-        request_data = AstrologicalSubjectModel(
+        # 2. Создаем "фабрику" для расчетов (ПУСТУЮ)
+        factory = ChartDataFactory()
+
+        # 3. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ МЕТОД .create_chart_data()
+        # Передаем все данные сюда как именованные аргументы
+        subject = factory.create_chart_data(
             name="Transits",
             day=tomorrow_date.day,
             month=tomorrow_date.month,
@@ -48,20 +51,10 @@ async def cache_daily_transits():
             minute=0,
             city="London",
             nation="UK"
-            # Остальные поля pydantic заполнит сам или оставит дефолтными
         )
-
-        # 3. Создаем "фабрику" для расчетов (ПУСТУЮ)
-        factory = ChartDataFactory()
-
-        # 4. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ МЕТОД у factory
-        # Предполагаем, что метод называется .get_chart_data() и возвращает subject
-        # ВАЖНО: Если этот метод называется иначе, здесь будет ошибка
-        subject = factory.get_chart_data(request_data)
-
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-        # 5. Собираем данные в словарь
+        # 4. Собираем данные в словарь
         planet_data = {}
 
         # Собираем положения 10 основных планет
@@ -74,7 +67,7 @@ async def cache_daily_transits():
                 "lon": round(planet_obj.lon, 2) # Градус в знаке
             }
 
-        # 6. Превращаем в JSON и сохраняем в БД
+        # 5. Превращаем в JSON и сохраняем в БД
         data_json = json.dumps(planet_data)
 
         async with aiosqlite.connect(DB_HOROSCOPES) as db:
