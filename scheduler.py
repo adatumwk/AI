@@ -8,9 +8,9 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (ПОПЫТКА 6, ФИНАЛЬНАЯ) ---
-# Мы импортируем "фабрику" из правильного под-модуля
-from kerykeion.modules.factory import AstrologicalSubjectFactory
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (ПОПЫТКА 7) ---
+# Правильный путь для Kerykeion v1.0.0+
+from kerykeion.api.factory import AstrologicalSubjectFactory
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
@@ -141,4 +141,17 @@ async def send_daily_horoscope_job(user_id: int):
         logger.info(f"Отправлен ежедневный гороскоп для {user_id}")
     except Forbidden:
         logger.warning(f"Пользователь {user_id} заблокировал бота. Деактивация.")
-        await save_user_
+        await save_user_data(user_id, is_active=False)
+    except Exception as e:
+        logger.error(f"Ошибка отправки гороскопа для {user_id}: {e}", exc_info=True)
+
+def update_user_jobs(user_id: int, tz: str, time: str):
+    job_id = f'daily_{user_id}'
+    hour, minute = map(int, time.split(':'))
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
+    scheduler.add_job(
+        send_daily_horoscope_job, 'cron', hour=hour, minute=minute,
+        timezone=get_pytz_timezone(tz), id=job_id, args=[user_id]
+    )
+    logger.info(f"Задача для {user_id} обновлена: {tz} {time}")
