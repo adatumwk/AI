@@ -8,9 +8,8 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (ПОПЫТКА 7) ---
-# Правильный путь для Kerykeion v1.0.0+
-from kerykeion.api.factory import AstrologicalSubjectFactory
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (Основан на твоем 'ls') ---
+from kerykeion.astrological_subject_factory import AstrologicalSubjectFactory
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
@@ -25,7 +24,7 @@ scheduler = AsyncIOScheduler(jobstores={'default': SQLAlchemyJobStore(url=DB_JOB
 async def cache_daily_transits():
     """
     Рассчитывает транзиты на завтра и сохраняет их в кэш (БД).
-    Использует kerykeion (v1.0.0+).
+    Использует kerykeion (v5.0.2).
     """
     try:
         logger.info("[КЭШЕР]: Начинаю кэширование транзитов на завтра...")
@@ -72,7 +71,7 @@ async def cache_daily_transits():
             )
             await db.commit()
             
-        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы (kerykeion v1+).")
+        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы (kerykeion v5+).")
         
     except Exception as e:
         logger.error(f"[КЭШЕР]: Ошибка при кэшировании транзитов: {e}", exc_info=True)
