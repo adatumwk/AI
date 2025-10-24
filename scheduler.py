@@ -4,7 +4,7 @@ from telegram import Bot
 from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-# from datetime import datetime # ИСПРАВЛЕНИЕ: Убран ненужный импорт
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS
@@ -33,8 +33,6 @@ def format_horoscope_message(horoscope_data, sign_name, h_type_rus):
     if not horoscope_data or not horoscope_data.get('general_text'):
         return f"К сожалению, {h_type_rus} гороскоп для знака {sign_name_rus} еще не готов. Попробуйте позже."
 
-    # ИСПРАВЛЕНИЕ: Убрано strptime. 
-    # 'date' теперь приходит из БД как объект date, благодаря detect_types.
     horoscope_date = horoscope_data['date']
     
     if h_type_rus == 'ежедневный':
@@ -67,6 +65,7 @@ def format_horoscope_message(horoscope_data, sign_name, h_type_rus):
             
     return "\n".join(message_parts)
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=5, max=30), retry=retry_if_exception_type(Exception))
 async def send_daily_horoscope_job(user_id: int):
     try:
         user = await get_user_data(user_id)
@@ -82,6 +81,7 @@ async def send_daily_horoscope_job(user_id: int):
         await save_user_data(user_id, is_active=False)
     except Exception as e:
         logger.error(f"Ошибка отправки гороскопа для {user_id}: {e}", exc_info=True)
+        raise  # Для retry
 
 def update_user_jobs(user_id: int, tz: str, time: str):
     job_id = f'daily_{user_id}'
