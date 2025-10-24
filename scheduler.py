@@ -8,11 +8,10 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- Новые импорты для Kerykeion ---
-from kerykeion import Kerykeion
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ KERYKEION ---
+from kerykeion.Calculator import Calculator
 
 from config import BOT_TOKEN
-# --- Измененный импорт констант ---
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
 from database import get_user_data, save_user_data
 from horoscope_fetcher import get_horoscope_from_db
@@ -33,10 +32,12 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
         
-        # 2. Рассчитываем транзиты, создав "фиктивный" объект Kerykeion.
+        # 2. Рассчитываем транзиты, создав объект Calculator.
         # Используем Лондон (UTC) и 12:00 дня как стандарт.
         # Имя "Transits" - просто заглушка.
-        chart = Kerykeion(
+        
+        # --- ИСПРАВЛЕННОЕ НАЗВАНИЕ КЛАССА ---
+        chart = Calculator(
             "Transits", 
             tomorrow_date.day, 
             tomorrow_date.month, 
