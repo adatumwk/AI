@@ -8,10 +8,10 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2) ---
-# 1. Фабрика для запроса данных
-from kerykeion.schemas.requests_models import AstrologicalSubjectRequest
-# 2. Фабрика для расчета
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2 - ФИНАЛ) ---
+# 1. Фабрика для запроса данных (из kerykeion/schemas/kr_models.py)
+from kerykeion.schemas.kr_models import AstrologicalSubjectRequest
+# 2. Фабрика для расчета (из kerykeion/chart_data_factory.py)
 from kerykeion.chart_data_factory import ChartDataFactory
 # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
@@ -38,7 +38,7 @@ async def cache_daily_transits():
         
         # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API) ---
         
-        # 2. Создаем "объект запроса" pydantic (из kerykeion.schemas.requests_models)
+        # 2. Создаем "объект запроса" pydantic (из kerykeion.schemas.kr_models)
         request_data = AstrologicalSubjectRequest(
             name="Transits", 
             day=tomorrow_date.day, 
