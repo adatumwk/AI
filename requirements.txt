@@ -8,6 +8,9 @@ beautifulsoup4
 aiohttp
 tenacity
 nest-asyncio
-flatlib
-geopy
 google-generativeai
+geopy
+
+# --- НОВЫЕ ПИННИНГИ ВЕРСИЙ ---
+swisseph==2.10.03.post1
+flatlib==0.2.7
