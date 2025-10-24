@@ -8,7 +8,6 @@ import random
 from bs4 import BeautifulSoup
 from constants import DB_HOROSCOPES, GENERAL_BLOCK_CLASS, SUB_CONTAINER_CLASS, BUSINESS_BLOCK_CLASS, RATE_BLOCK_CLASS, HOROSCOPE_ITEMS_CLASS
 
-# ИСПРАВЛЕНИЕ: Расширенный список USER_AGENTS
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Safari/605.1.15',
@@ -23,7 +22,6 @@ def setup_parser_logger(name: str):
         logger.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-        # Указываем путь и создаем папку, если ее нет
         log_dir = 'logs'
         os.makedirs(log_dir, exist_ok=True)
         log_file_path = os.path.join(log_dir, 'parsers.log')
@@ -56,6 +54,16 @@ async def init_horoscope_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_horoscope
             ON horoscopes (sign_id, type, date)
         ''')
+        
+        # --- НОВАЯ ТАБЛИЦА ДЛЯ КЭША ТРАНЗИТОВ ---
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS transits_cache (
+                transit_date DATE PRIMARY KEY,
+                planet_data TEXT
+            )
+        ''')
+        # --- КОНЕЦ НОВОГО КОДА ---
+        
         await db.commit()
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=30), retry=retry_if_exception_type(aiohttp.ClientError))
@@ -68,19 +76,16 @@ async def parse_horoscope(sign_id: int, base_url: str, session: aiohttp.ClientSe
     
     soup = BeautifulSoup(text, 'html.parser')
     
-    # Инициализируем словарь для всех полей
     result = {
         "general_text": None, "business_text": None, "business_rating": None,
         "health_text": None, "health_rating": None, "love_text": None,
         "love_rating": None, "lunar_text": None, "lunar_rating": None,
     }
 
-    # 1. Парсим общий гороскоп
     general_block = soup.find("div", class_=GENERAL_BLOCK_CLASS)
     if general_block:
         result["general_text"] = general_block.get_text(" ", strip=True)
 
-    # 2. Парсим все остальные блоки (Бизнес, Здоровье и т.д.)
     container = soup.find("div", class_=SUB_CONTAINER_CLASS)
     if container:
         blocks = container.find_all("div", class_=BUSINESS_BLOCK_CLASS)
@@ -90,27 +95,23 @@ async def parse_horoscope(sign_id: int, base_url: str, session: aiohttp.ClientSe
                 continue
             title = title_elem.get_text(strip=True).lower()
 
-            # Извлекаем текст из параграфов <p>
             items_block = block.find("div", class_=HOROSCOPE_ITEMS_CLASS)
             text_parts = []
             if items_block:
                 paragraphs = items_block.find_all("p")
                 for p in paragraphs:
                     p_text = p.get_text(strip=True)
-                    # ИСПРАВЛЕНИЕ: Игнорируем лишний текст в лунном календаре
                     if "лун" in title and p_text.startswith('Сегодня'):
                         break
                     text_parts.append(p_text)
             text = " ".join(text_parts)
 
-            # Извлекаем рейтинг
             rate_block = block.find("div", class_=RATE_BLOCK_CLASS)
             rating = None
             if rate_block:
                 rate_parts = [r.get_text(strip=True) for r in rate_block.find_all("div") if r.get_text(strip=True)]
                 rating = '/'.join(rate_parts)
 
-            # Распределяем данные по ключам
             if "бизнес" in title:
                 result["business_text"] = text
                 result["business_rating"] = rating
@@ -128,7 +129,6 @@ async def parse_horoscope(sign_id: int, base_url: str, session: aiohttp.ClientSe
 
 async def insert_horoscope(sign_id: int, horoscope_type: str, horoscope_date, data: dict):
     async with aiosqlite.connect(DB_HOROSCOPES) as db:
-        # Обновляем запрос для сохранения всех полей
         await db.execute(
             """INSERT OR REPLACE INTO horoscopes 
                (sign_id, type, date, general_text, business_text, business_rating, 
