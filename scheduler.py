@@ -8,8 +8,9 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- Наш правильный импорт ---
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2) ---
 from kerykeion.astrological_subject_factory import AstrologicalSubjectFactory
+from kerykeion.schemas.requests_models import AstrologicalSubjectRequest
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
@@ -34,8 +35,8 @@ async def cache_daily_transits():
         
         # --- ИСПРАВЛЕНИЕ ЛОГИКИ (v5.0.2 API - ФИНАЛ) ---
         
-        # 2. Создаем "фабрику", ПЕРЕДАВАЯ все аргументы в конструктор
-        factory = AstrologicalSubjectFactory(
+        # 2. Создаем "объект запроса" pydantic
+        request_data = AstrologicalSubjectRequest(
             name="Transits", 
             day=tomorrow_date.day, 
             month=tomorrow_date.month, 
@@ -45,13 +46,16 @@ async def cache_daily_transits():
             city="London", 
             nation="UK"
         )
+
+        # 3. Создаем "фабрику", передавая ей объект запроса
+        factory = AstrologicalSubjectFactory(request_data)
         
-        # 3. Получаем рассчитанный объект ("субъект") из СВОЙСТВА .subject
-        subject = factory.subject
+        # 4. Получаем рассчитанный объект ("субъект")
+        subject = factory.create_subject()
         
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-        # 4. Собираем данные в словарь
+        # 5. Собираем данные в словарь
         planet_data = {}
         
         # Собираем положения 10 основных планет
@@ -64,7 +68,7 @@ async def cache_daily_transits():
                 "lon": round(planet_obj.lon, 2) # Градус в знаке
             }
             
-        # 5. Превращаем в JSON и сохраняем в БД
+        # 6. Превращаем в JSON и сохраняем в БД
         data_json = json.dumps(planet_data)
         
         async with aiosqlite.connect(DB_HOROSCOPES) as db:
