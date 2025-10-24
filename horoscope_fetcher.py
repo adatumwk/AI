@@ -1,6 +1,6 @@
 import aiosqlite
 import logging
-import sqlite3 # ИСПРАВЛЕНИЕ: Импортируем для константы PARSE_DECLTYPES
+import sqlite3
 from constants import DB_HOROSCOPES, ZODIAC_MAP
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,6 @@ async def get_horoscope_from_db(sign_name: str, horoscope_type: str):
         logger.error(f"Неверное имя знака: {sign_name}")
         return None
     try:
-        # ИСПРАВЛЕНИЕ: Добавлен detect_types
         async with aiosqlite.connect(DB_HOROSCOPES, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
