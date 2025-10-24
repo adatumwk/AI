@@ -9,8 +9,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 # --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2 - ФИНАЛ!) ---
-# 1. Модель для данных (из kerykeion/schemas/kr_models.py), как подсказал Python
-from kerykeion.schemas.kr_models import AstrologicalSubjectModel
+# 1. Модель для ЗАПРОСА данных (из kerykeion/kr_types/models.py)
+from kerykeion.kr_types.models import KerykeionSubjectRequestModel
 # 2. Фабрика для расчета (из kerykeion/chart_data_factory.py)
 from kerykeion.chart_data_factory import ChartDataFactory
 # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
@@ -38,10 +38,10 @@ async def cache_daily_transits():
 
         # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API - ФИНАЛ!) ---
 
-        # 2. Создаем "объект запроса" pydantic (используя AstrologicalSubjectModel)
-        # Pydantic сам валидирует данные при создании
-        request_data = AstrologicalSubjectModel(
-            name="Transits", # Добавим name обратно, вдруг нужен
+        # 2. Создаем "объект запроса" pydantic (используя KerykeionSubjectRequestModel)
+        # Это модель ВХОДНЫХ данных
+        request_data = KerykeionSubjectRequestModel(
+            # name="Transits", # 'name' не нужен для этой модели
             day=tomorrow_date.day,
             month=tomorrow_date.month,
             year=tomorrow_date.year,
@@ -49,15 +49,13 @@ async def cache_daily_transits():
             minute=0,
             city="London",
             nation="UK"
-            # Остальные 26 полей (lng, lat, tz_str...) НЕ НУЖНЫ здесь,
-            # pydantic/kerykeion вычислят их сами из city/nation
         )
 
         # 3. Создаем "фабрику" для расчетов (ПУСТУЮ)
         factory = ChartDataFactory()
 
         # 4. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ МЕТОД .create_chart_data()
-        # и ПЕРЕДАВАЯ ему ОБЪЕКТ ЗАПРОСА
+        # и ПЕРЕДАВАЯ ему ОБЪЕКТ ЗАПРОСА в аргумент 'request'
         subject = factory.create_chart_data(request=request_data)
 
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
