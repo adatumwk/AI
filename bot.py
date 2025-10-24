@@ -14,7 +14,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # 2. Конфигурация Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 # Выбираем модель. 'gemini-1.5-flash' - быстрая и бесплатная
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash')
 
 # 3. Конфигурация Aiogram (Telegram Bot)
 bot = Bot(token=TELEGRAM_TOKEN)
