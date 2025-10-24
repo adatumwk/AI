@@ -56,6 +56,16 @@ async def init_horoscope_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_horoscope
             ON horoscopes (sign_id, type, date)
         ''')
+        
+        # --- НОВАЯ ТАБЛИЦА ДЛЯ КЭША ТРАНЗИТОВ ---
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS transits_cache (
+                transit_date DATE PRIMARY KEY,
+                planet_data TEXT
+            )
+        ''')
+        # --- КОНЕЦ НОВОГО КОДА ---
+        
         await db.commit()
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=30), retry=retry_if_exception_type(aiohttp.ClientError))
