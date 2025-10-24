@@ -41,9 +41,9 @@ async def cache_daily_transits():
         factory = ChartDataFactory()
 
         # 3. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ МЕТОД .create_chart_data()
-        # Передаем все данные сюда как именованные аргументы
+        # Убираем 'name', так как он не нужен для транзитов
         subject = factory.create_chart_data(
-            name="Transits",
+            # name="Transits", # <-- УБРАЛИ ЭТУ СТРОКУ
             day=tomorrow_date.day,
             month=tomorrow_date.month,
             year=tomorrow_date.year,
