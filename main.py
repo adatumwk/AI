@@ -1,6 +1,6 @@
 import logging
 import asyncio
-import nest_asyncio # ИСПРАВЛЕНИЕ: Возвращаем nest_asyncio
+import nest_asyncio
 import os
 from telegram import Update, BotCommand
 from telegram.ext import (
@@ -12,7 +12,7 @@ from telegram.warnings import PTBUserWarning
 
 filterwarnings(action="ignore", message=r".*CallbackQueryHandler", category=PTBUserWarning)
 
-nest_asyncio.apply() # ИСПРАВЛЕНИЕ: Возвращаем nest_asyncio.apply()
+nest_asyncio.apply()
 
 from config import BOT_TOKEN
 from keyboards import *
@@ -40,7 +40,7 @@ async def start_command(update: Update, context: CallbackContext):
         "last_name": user.last_name,
         "username": user.username,
         "language_code": user.language_code,
-        "is_premium": getattr(user, 'is_premium', False) # getattr для совместимости
+        "is_premium": getattr(user, 'is_premium', False)
     }
     # Сразу сохраняем или обновляем основную информацию
     await save_user_data(user.id, **user_info)
@@ -83,134 +83,127 @@ async def subscribe_command(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text("Сначала настройте бота через /start.")
 
-# === ДИАЛОГ ПЕРВОНАЧАЛЬНОЙ НАСТРОЙКИ ===
+# === ДИАЛОГ НАСТРОЙКИ ===
 
 async def setup_select_zodiac(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    context.user_data['zodiac'] = query.data.split('_')[1]
-    await query.edit_message_text("Шаг 2: Выберите ваш часовой пояс.", reply_markup=get_timezone_keyboard())
+    query = update.callback_query
+    await query.answer()
+    sign = query.data.split('_')[1]
+    await save_user_data(update.effective_user.id, zodiac_sign=sign)
+    await query.edit_message_text("Шаг 2: Выберите ваш часовой пояс:", reply_markup=get_timezone_keyboard())
     return SETUP_TIMEZONE
 
 async def setup_select_timezone(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    context.user_data['timezone'] = query.data.split('_')[1]
-    await query.edit_message_text("Шаг 3: Выберите время для уведомлений.", reply_markup=get_time_keyboard())
+    query = update.callback_query
+    await query.answer()
+    tz = query.data.split('_')[1]
+    await save_user_data(update.effective_user.id, timezone=tz)
+    await query.edit_message_text("Шаг 3: Выберите время для ежедневных уведомлений:", reply_markup=get_time_keyboard())
     return SETUP_TIME
 
 async def setup_select_time(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
+    query = update.callback_query
+    await query.answer()
     time = query.data.split('_')[1]
-    user_id = query.from_user.id
-    user_choices = {"zodiac_sign": context.user_data.get('zodiac'), "timezone": context.user_data.get('timezone'), "notification_time": time}
-    
-    await save_user_data(user_id, **user_choices)
-    update_user_jobs(user_id, user_choices["timezone"], time)
-    
-    await query.edit_message_text("🎉 Настройки успешно сохранены!")
-    await show_main_menu(update, context, text="Ваше главное меню:")
-    context.user_data.clear()
+    user_id = update.effective_user.id
+    await save_user_data(user_id, notification_time=time)
+    user = await get_user_data(user_id)
+    update_user_jobs(user_id, user['timezone'], time)
+    await query.edit_message_text("Настройка завершена! Вы будете получать ежедневные гороскопы.", reply_markup=get_main_menu_keyboard())
     return ConversationHandler.END
 
 async def cancel_setup(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    await query.edit_message_text("Настройка отменена.")
-    context.user_data.clear()
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Настройка отменена.")
     return ConversationHandler.END
 
-# === ДИАЛОГ ИЗМЕНЕНИЯ НАСТРОЕК ===
+# === НАСТРОЙКИ ===
 
 async def settings_start(update: Update, context: CallbackContext):
-    """Вход в меню настроек."""
-    query = update.callback_query; await query.answer()
-    logger.info("Вход в меню настроек")
-    await query.edit_message_text("⚙️ Здесь вы можете изменить свои настройки:", reply_markup=get_settings_menu_keyboard())
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Меню настроек:", reply_markup=get_settings_menu_keyboard())
     return SETTINGS_ROOT
 
 async def settings_ask_zodiac(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    await query.edit_message_text("Выберите ваш новый знак зодиака:", reply_markup=get_zodiac_keyboard(is_settings=True))
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Выберите новый знак зодиака:", reply_markup=get_zodiac_keyboard(is_settings=True))
     return SETTINGS_ZODIAC
 
 async def settings_save_zodiac(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    zodiac_sign = query.data.split('_')[1]
-    await save_user_data(query.from_user.id, zodiac_sign=zodiac_sign)
-    await query.edit_message_text(f"✅ Знак изменен на {RUSSIAN_SIGNS[zodiac_sign]}.\n\n⚙️ Настройки:", reply_markup=get_settings_menu_keyboard())
+    query = update.callback_query
+    await query.answer()
+    sign = query.data.split('_')[1]
+    await save_user_data(update.effective_user.id, zodiac_sign=sign)
+    await query.edit_message_text("Знак зодиака изменен. Меню настроек:", reply_markup=get_settings_menu_keyboard())
     return SETTINGS_ROOT
 
 async def settings_ask_timezone(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    await query.edit_message_text("Выберите ваш новый часовой пояс:", reply_markup=get_timezone_keyboard(is_settings=True))
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Выберите новый часовой пояс:", reply_markup=get_timezone_keyboard(is_settings=True))
     return SETTINGS_TIMEZONE
 
 async def settings_save_timezone(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    timezone = query.data.split('_')[1]
-    user_id = query.from_user.id
-    await save_user_data(user_id, timezone=timezone)
+    query = update.callback_query
+    await query.answer()
+    tz = query.data.split('_')[1]
+    user_id = update.effective_user.id
+    await save_user_data(user_id, timezone=tz)
     user = await get_user_data(user_id)
-    if user and user.get('notification_time'):
-        update_user_jobs(user_id, timezone, user['notification_time'])
-    await query.edit_message_text(f"✅ Часовой пояс изменен на {timezone}.\n\n⚙️ Настройки:", reply_markup=get_settings_menu_keyboard())
+    update_user_jobs(user_id, tz, user['notification_time'])
+    await query.edit_message_text("Часовой пояс изменен. Меню настроек:", reply_markup=get_settings_menu_keyboard())
     return SETTINGS_ROOT
 
 async def settings_ask_time(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    await query.edit_message_text("Выберите новое время уведомлений:", reply_markup=get_time_keyboard(is_settings=True))
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Выберите новое время уведомлений:", reply_markup=get_time_keyboard(is_settings=True))
     return SETTINGS_TIME
 
 async def settings_save_time(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
+    query = update.callback_query
+    await query.answer()
     time = query.data.split('_')[1]
-    user_id = query.from_user.id
+    user_id = update.effective_user.id
     await save_user_data(user_id, notification_time=time)
     user = await get_user_data(user_id)
-    if user and user.get('timezone'):
-        update_user_jobs(user_id, user['timezone'], time)
-    await query.edit_message_text(f"✅ Время уведомлений изменено на {time}.\n\n⚙️ Настройки:", reply_markup=get_settings_menu_keyboard())
+    update_user_jobs(user_id, user['timezone'], time)
+    await query.edit_message_text("Время уведомлений изменено. Меню настроек:", reply_markup=get_settings_menu_keyboard())
     return SETTINGS_ROOT
 
-# === ОБРАБОТЧИКИ ОСТАЛЬНЫХ КНОПОК ===
+# === ПОЛУЧЕНИЕ ГОРОСКОПА ===
 
 async def get_now_handler(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    logger.info("Кнопка 'Получить гороскоп' нажата")
-    user = await get_user_data(query.from_user.id)
-    if not user or not user.get('zodiac_sign'):
-        await query.message.reply_text("Сначала пройдите настройку через /start.")
-        return
-    await query.message.reply_text("Какой гороскоп хотите получить?", reply_markup=get_horoscope_type_keyboard())
-    
-async def help_handler(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    logger.info("Кнопка 'Помощь' нажата")
-    help_text = "Это бот для гороскопов. Команда /start начинает настройку."
-    await query.edit_message_text(help_text, reply_markup=get_main_menu_keyboard())
-    
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text("Выберите тип гороскопа:", reply_markup=get_horoscope_type_keyboard())
+
 async def horoscope_type_handler(update: Update, context: CallbackContext):
-    query = update.callback_query; await query.answer()
-    logger.info("Выбран тип гороскопа")
-    horoscope_type = query.data.split('_')[2]
-    user = await get_user_data(query.from_user.id)
-    if not user: return
-    
-    await query.edit_message_text("🔮 Ищу ваш гороскоп, минутку...")
-    horoscope_data = await get_horoscope_from_db(user['zodiac_sign'], horoscope_type)
-    
-    if not horoscope_data:
-        await query.edit_message_text(f"😔 Гороскоп типа {horoscope_type} не найден. Попробуйте позже.")
-        await context.bot.send_message(chat_id=query.from_user.id, text="Главное меню:", reply_markup=get_main_menu_keyboard())
+    query = update.callback_query
+    await query.answer()
+    h_type = query.data.split('_')[2]
+    user_id = update.effective_user.id
+    user = await get_user_data(user_id)
+    if not user or not user.get('zodiac_sign'):
+        await query.edit_message_text("Сначала настройте знак зодиака в /start.")
         return
-        
-    h_type_rus = {
-        "daily": "ежедневный", 
-        "weekly": "еженедельный", 
-        "monthly": "ежемесячный",
-        "yearly": "годовой" 
-    }.get(horoscope_type, "неизвестный")
-    message = format_horoscope_message(horoscope_data, user['zodiac_sign'], h_type_rus)
-    await query.edit_message_text(message, parse_mode='Markdown')
-    await context.bot.send_message(chat_id=query.from_user.id, text="Главное меню:", reply_markup=get_main_menu_keyboard())
+    horoscope = await get_horoscope_from_db(user['zodiac_sign'], h_type)
+    h_type_rus = {'daily': 'ежедневный', 'weekly': 'еженедельный', 'monthly': 'ежемесячный', 'yearly': 'годовой'}.get(h_type, h_type)
+    message = format_horoscope_message(horoscope, user['zodiac_sign'], h_type_rus)
+    await query.edit_message_text(message, parse_mode='Markdown', reply_markup=get_main_menu_keyboard())
+
+async def help_handler(update: Update, context: CallbackContext):
+    await update.callback_query.answer()
+    help_text = """
+    ❓ *Помощь по боту*
+    
+    - /start: Настроить или перезапустить бота.
+    - /menu: Открыть главное меню.
+    - /subscribe: Включить уведомления.
+    - /stop: Отключить уведомления.
+    
+    В главном меню:
+    - 🔮 Получить гороскоп: Выберите тип.
+    - ⚙️ Настройки: Измените знак, пояс или время.
+    """
+    await update.callback_query.edit_message_text(help_text, parse_mode='Markdown', reply_markup=get_main_menu_keyboard())
 
 async def main():
     if not os.path.exists('data'): os.makedirs('data')
@@ -283,8 +276,6 @@ async def main():
     except KeyboardInterrupt:
         logger.info("Получен сигнал прерывания. Остановка бота...")
     finally:
-        # ИСПРАВЛЕНИЕ: Оборачиваем application.stop() в try/except,
-        # чтобы избежать ошибки, если бот упал до полного запуска.
         try:
             await application.stop()
         except RuntimeError as e:
