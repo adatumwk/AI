@@ -9,8 +9,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 # --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2 - ФИНАЛ!) ---
-# 1. Модель для ЗАПРОСА данных (импортируется из корня)
-from kerykeion import KerykeionSubjectRequestModel
+# 1. Модель для ЗАПРОСА данных (из kerykeion/kr_types/kr_models.py)
+from kerykeion.kr_types.kr_models import KerykeionSubjectRequestModel
 # 2. Фабрика для расчета (из kerykeion/chart_data_factory.py)
 from kerykeion.chart_data_factory import ChartDataFactory
 # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
