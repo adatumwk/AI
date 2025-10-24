@@ -9,8 +9,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 # --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2 - ФИНАЛ!) ---
-# 1. Модель для ЗАПРОСА данных (из kerykeion/kr_types/models.py)
-from kerykeion.kr_types.models import KerykeionSubjectRequestModel
+# 1. Модель для ЗАПРОСА данных (из kerykeion/schemas/kr_models.py)
+from kerykeion.schemas.kr_models import AstrologicalSubjectRequest
 # 2. Фабрика для расчета (из kerykeion/chart_data_factory.py)
 from kerykeion.chart_data_factory import ChartDataFactory
 # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
@@ -38,9 +38,9 @@ async def cache_daily_transits():
 
         # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API - ФИНАЛ!) ---
 
-        # 2. Создаем "объект запроса" pydantic (используя KerykeionSubjectRequestModel)
+        # 2. Создаем "объект запроса" pydantic (используя AstrologicalSubjectRequest)
         # Это модель ВХОДНЫХ данных
-        request_data = KerykeionSubjectRequestModel(
+        request_data = AstrologicalSubjectRequest(
             # name="Transits", # 'name' не нужен для этой модели
             day=tomorrow_date.day,
             month=tomorrow_date.month,
