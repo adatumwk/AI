@@ -39,9 +39,10 @@ async def cache_daily_transits():
         # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API - ФИНАЛ!) ---
 
         # 2. Создаем "объект запроса" pydantic (используя AstrologicalSubjectModel)
-        # Pydantic сам валидирует данные при создании
+        # Передаем ТОЛЬКО входные данные. Pydantic должен сам разобраться
+        # с остальными полями (установить None или значения по умолчанию).
         request_data = AstrologicalSubjectModel(
-            name="Transits", # Добавим name обратно, вдруг нужен
+            name="Transits",
             day=tomorrow_date.day,
             month=tomorrow_date.month,
             year=tomorrow_date.year,
@@ -49,16 +50,13 @@ async def cache_daily_transits():
             minute=0,
             city="London",
             nation="UK"
-            # Остальные 26 полей (lng, lat, tz_str...) НЕ НУЖНЫ здесь,
-            # pydantic/kerykeion вычислят их сами из city/nation
         )
 
-        # 3. Создаем "фабрику" для расчетов (ПУСТУЮ)
-        factory = ChartDataFactory()
+        # 3. Создаем "фабрику" для расчетов, ПЕРЕДАВАЯ ей объект запроса В КОНСТРУКТОР
+        factory = ChartDataFactory(request=request_data)
 
-        # 4. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ МЕТОД .create_chart_data()
-        # и ПЕРЕДАВАЯ ему ОБЪЕКТ ЗАПРОСА
-        subject = factory.create_chart_data(request=request_data)
+        # 4. Получаем рассчитанный объект ("субъект") из СВОЙСТВА .subject
+        subject = factory.subject
 
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
