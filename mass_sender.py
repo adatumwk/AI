@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import argparse
+from tqdm import tqdm
 from telegram import Bot
 from telegram.error import Forbidden
 
@@ -21,7 +23,7 @@ MESSAGE_TEXT = """
 Спасибо, что остаетесь с нами ✨
 """
 
-async def main():
+async def main(dry_run=False):
     """
     Основная функция для выполнения рассылки.
     """
@@ -37,23 +39,21 @@ async def main():
     sent_count = 0
     blocked_count = 0
 
-    for user_id in user_ids:
+    for user_id in tqdm(user_ids, desc="Рассылка прогресс"):
         try:
-            await bot.send_message(chat_id=user_id, text=MESSAGE_TEXT)
+            if not dry_run:
+                await bot.send_message(chat_id=user_id, text=MESSAGE_TEXT)
             sent_count += 1
-            logger.info(f"Сообщение успешно отправлено пользователю {user_id}")
+            logger.info(f"Сообщение успешно отправлено пользователю {user_id}" if not dry_run else f"Сухой запуск: симулировано для {user_id}")
         except Forbidden:
             # Если пользователь заблокировал бота
             blocked_count += 1
             logger.warning(f"Пользователь {user_id} заблокировал бота. Деактивируем.")
-            await save_user_data(user_id, is_active=False)
+            if not dry_run:
+                await save_user_data(user_id, is_active=False)
         except Exception as e:
             logger.error(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
         
-        # Печатаем прогресс в консоль
-        progress = f"Прогресс: {sent_count + blocked_count}/{total_users} (Отправлено: {sent_count}, Заблокировали: {blocked_count})"
-        print(progress)
-
         # САМАЯ ВАЖНАЯ ЧАСТЬ: задержка для защиты от бана
         # 1 секунда — безопасная задержка. Не делайте ее меньше.
         await asyncio.sleep(1)
@@ -63,5 +63,9 @@ async def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Скрипт для массовой рассылки в Telegram-боте")
+    parser.add_argument('--dry-run', action='store_true', help="Симулировать рассылку без реальной отправки сообщений")
+    args = parser.parse_args()
+    
     # Запускаем асинхронную функцию
-    asyncio.run(main())
+    asyncio.run(main(dry_run=args.dry_run))
