@@ -16,18 +16,15 @@ bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler(jobstores={'default': SQLAlchemyJobStore(url=DB_JOBS)})
 
 def get_pytz_timezone(tz_str: str):
-    """УЛУЧШЕНИЕ: Более надежная конвертация строки UTC в объект pytz."""
     if tz_str == "UTC+0":
         return pytz.timezone("Etc/GMT")
     
     sign = tz_str[3]
     offset = int(tz_str[4:])
-    # Etc/GMT имеет обратный знак: Etc/GMT-3 это UTC+3
     flipped_sign = '-' if sign == '+' else '+'
     return pytz.timezone(f"Etc/GMT{flipped_sign}{offset}")
 
 def format_horoscope_message(horoscope_data, sign_name, h_type_rus):
-    """Создает красивое форматированное сообщение для отправки в Telegram."""
     sign_name_rus = RUSSIAN_SIGNS.get(sign_name, sign_name)
     
     if not horoscope_data or not horoscope_data.get('general_text'):
@@ -81,7 +78,7 @@ async def send_daily_horoscope_job(user_id: int):
         await save_user_data(user_id, is_active=False)
     except Exception as e:
         logger.error(f"Ошибка отправки гороскопа для {user_id}: {e}", exc_info=True)
-        raise  # Для retry
+        raise
 
 def update_user_jobs(user_id: int, tz: str, time: str):
     job_id = f'daily_{user_id}'
