@@ -8,7 +8,6 @@ import random
 from bs4 import BeautifulSoup
 from constants import DB_HOROSCOPES, GENERAL_BLOCK_CLASS, SUB_CONTAINER_CLASS, BUSINESS_BLOCK_CLASS, RATE_BLOCK_CLASS, HOROSCOPE_ITEMS_CLASS
 
-# ИСПРАВЛЕНИЕ: Расширенный список USER_AGENTS
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Safari/605.1.15',
@@ -66,7 +65,7 @@ async def parse_horoscope(sign_id: int, base_url: str, session: aiohttp.ClientSe
         response.raise_for_status()
         text = await response.text()
     
-    soup = BeautifulSoup(text, 'html.parser')
+    soup = BeautifulSoup(text, 'lxml')
     
     # Инициализируем словарь для всех полей
     result = {
@@ -97,7 +96,6 @@ async def parse_horoscope(sign_id: int, base_url: str, session: aiohttp.ClientSe
                 paragraphs = items_block.find_all("p")
                 for p in paragraphs:
                     p_text = p.get_text(strip=True)
-                    # ИСПРАВЛЕНИЕ: Игнорируем лишний текст в лунном календаре
                     if "лун" in title and p_text.startswith('Сегодня'):
                         break
                     text_parts.append(p_text)
@@ -127,6 +125,8 @@ async def parse_horoscope(sign_id: int, base_url: str, session: aiohttp.ClientSe
     return result
 
 async def insert_horoscope(sign_id: int, horoscope_type: str, horoscope_date, data: dict):
+    if not data.get('general_text'):
+        raise ValueError(f"Нет основного текста гороскопа для {sign_id}, тип {horoscope_type}")
     async with aiosqlite.connect(DB_HOROSCOPES) as db:
         # Обновляем запрос для сохранения всех полей
         await db.execute(
