@@ -11,3 +11,4 @@ nest-asyncio
 tqdm
 pytest
 pytest-asyncio
+lxml
