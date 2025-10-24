@@ -8,11 +8,10 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2 - ФИНАЛ!) ---
-# 1. Модель для данных (из kerykeion/schemas/kr_models.py), как подсказал Python
-from kerykeion.schemas.kr_models import AstrologicalSubjectModel
-# 2. Фабрика для расчета (из kerykeion/chart_data_factory.py)
+# --- ИСПРАВЛЕННЫЕ ИМПОРТЫ (v5.0.2) ---
+# Нам нужна только фабрика для расчетов
 from kerykeion.chart_data_factory import ChartDataFactory
+# AstrologicalSubjectModel не нужен здесь, фабрика его вернет.
 # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 from config import BOT_TOKEN
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler(jobstores={'default': SQLAlchemyJobStore(url=DB_JOBS)})
 
-# --- НОВАЯ ФУНКЦИЯ КЭШИРОВАНИЯ (НА ChartDataFactory) ---
+# --- ОБНОВЛЕННАЯ ФУНКЦИЯ КЭШИРОВАНИЯ (Используем ChartDataFactory правильно) ---
 async def cache_daily_transits():
     """
     Рассчитывает транзиты на завтра и сохраняет их в кэш (БД).
@@ -36,46 +35,37 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
 
-        # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API - ФИНАЛ!) ---
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API) ---
 
-        # 2. Создаем "объект запроса" pydantic (используя AstrologicalSubjectModel)
-        # Pydantic сам валидирует данные при создании
-        request_data = AstrologicalSubjectModel(
-            name="Transits", # Добавим name обратно, вдруг нужен
+        # 2. Создаем ChartDataFactory напрямую с сырыми данными
+        # Фабрика сама обработает геокодирование и часовой пояс.
+        factory = ChartDataFactory(
+            name="Transits", # Имя - просто метка
             day=tomorrow_date.day,
             month=tomorrow_date.month,
             year=tomorrow_date.year,
-            hour=12,
+            hour=12, # Используем полдень UTC как стандарт для транзитов
             minute=0,
-            city="London",
+            city="London", # Место используется для определения часового пояса (UTC)
             nation="UK"
-            # Остальные 26 полей (lng, lat, tz_str...) НЕ НУЖНЫ здесь,
-            # pydantic/kerykeion вычислят их сами из city/nation
         )
 
-        # 3. Создаем "фабрику" для расчетов (ПУСТУЮ)
-        factory = ChartDataFactory()
-
-        # 4. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ МЕТОД .create_chart_data()
-        # и ПЕРЕДАВАЯ ему ОБЪЕКТ ЗАПРОСА
-        subject = factory.create_chart_data(request=request_data)
+        # 3. Получаем рассчитанный объект subject из свойства .subject
+        subject = factory.subject # Это и есть экземпляр AstrologicalSubjectModel
 
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-        # 5. Собираем данные в словарь
+        # 4. Извлекаем данные о планетах в словарь
         planet_data = {}
-
-        # Собираем положения 10 основных планет
         planets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']
         for p_name in planets:
-            # Используем getattr, чтобы получить subject.sun, subject.moon и т.д.
             planet_obj = getattr(subject, p_name)
             planet_data[p_name.capitalize()] = { # Сохраняем с большой буквы (Sun, Moon)
-                "sign": planet_obj.sign,       # Знак (напр., 'Aries')
+                "sign": planet_obj.sign,       # например, 'Aries'
                 "lon": round(planet_obj.lon, 2) # Градус в знаке
             }
 
-        # 6. Превращаем в JSON и сохраняем в БД
+        # 5. Превращаем в JSON и сохраняем в БД
         data_json = json.dumps(planet_data)
 
         async with aiosqlite.connect(DB_HOROSCOPES) as db:
@@ -89,11 +79,11 @@ async def cache_daily_transits():
 
     except Exception as e:
         logger.error(f"[КЭШЕР]: Ошибка при кэшировании транзитов: {e}", exc_info=True)
-# --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
+# --- КОНЕЦ ОБНОВЛЕННОЙ ФУНКЦИИ ---
 
 
 def get_pytz_timezone(tz_str: str):
-    """УЛУЧШЕНИЕ: Более надежная конвертация строки UTC в объект pytz."""
+    """Более надежная конвертация строки UTC в объект pytz."""
     if tz_str == "UTC+0":
         return pytz.timezone("Etc/GMT")
 
@@ -104,7 +94,7 @@ def get_pytz_timezone(tz_str: str):
     return pytz.timezone(f"Etc/GMT{flipped_sign}{offset}")
 
 def format_horoscope_message(horoscope_data, sign_name, h_type_rus):
-    """Создает красивое форматированное сообщение для отправки в Telegram."""
+    """Создает форматированное сообщение для Telegram."""
     sign_name_rus = RUSSIAN_SIGNS.get(sign_name, sign_name)
 
     if not horoscope_data or not horoscope_data.get('general_text'):
