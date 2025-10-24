@@ -8,10 +8,8 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- Новые импорты для Flatlib ---
-from flatlib.chart import Chart
-from flatlib.datetime import Datetime
-from flatlib.geopos import GeoPos
+# --- Новые импорты для Kerykeion ---
+from kerykeion import Kerykeion
 
 from config import BOT_TOKEN
 # --- Измененный импорт констант ---
@@ -23,33 +21,39 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler(jobstores={'default': SQLAlchemyJobStore(url=DB_JOBS)})
 
-# --- НОВАЯ ФУНКЦИЯ КЭШИРОВАНИЯ ТРАНЗИТОВ ---
+# --- НОВАЯ ФУНКЦИЯ КЭШИРОВАНИЯ (НА KERYKEION) ---
 async def cache_daily_transits():
     """
     Рассчитывает транзиты на завтра и сохраняет их в кэш (БД).
+    Использует kerykeion.
     """
     try:
         logger.info("[КЭШЕР]: Начинаю кэширование транзитов на завтра...")
         
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
-        tomorrow_str = tomorrow_date.strftime('%Y/%m/%d')
         
-        # 2. Рассчитываем транзиты (используем универсальное время и место)
-        # 12:00 UTC, нулевые координаты. Это стандарт для транзитов.
-        dt = Datetime(tomorrow_str, '12:00', '+00:00')
-        pos = GeoPos('0', '0') # Нулевые широта и долгота
-        chart = Chart(dt, pos)
+        # 2. Рассчитываем транзиты, создав "фиктивный" объект Kerykeion.
+        # Используем Лондон (UTC) и 12:00 дня как стандарт.
+        # Имя "Transits" - просто заглушка.
+        chart = Kerykeion(
+            "Transits", 
+            tomorrow_date.day, 
+            tomorrow_date.month, 
+            tomorrow_date.year, 
+            12, 0, "London", "UK"
+        )
         
         # 3. Собираем данные в словарь
         planet_data = {}
         
         # Собираем положения 10 основных планет
-        planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
+        # kerykeion использует .sun, .moon (нижний регистр)
+        planets = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']
         for p_name in planets:
-            # Используем getattr, чтобы получить chart.Sun, chart.Moon и т.д.
+            # Используем getattr, чтобы получить chart.sun, chart.moon и т.д.
             planet_obj = getattr(chart, p_name) 
-            planet_data[p_name] = {
+            planet_data[p_name.capitalize()] = { # Сохраняем с большой буквы для унификации (Sun, Moon)
                 "sign": planet_obj.sign,       # Знак (напр., 'Aries')
                 "lon": round(planet_obj.lon, 2) # Градус в знаке
             }
@@ -64,7 +68,7 @@ async def cache_daily_transits():
             )
             await db.commit()
             
-        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы.")
+        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы (kerykeion).")
         
     except Exception as e:
         logger.error(f"[КЭШЕР]: Ошибка при кэшировании транзитов: {e}", exc_info=True)
