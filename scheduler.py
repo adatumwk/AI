@@ -34,11 +34,8 @@ async def cache_daily_transits():
         
         # --- ИСПРАВЛЕНИЕ ЛОГИКИ (v5.0.2 API - ФИНАЛ) ---
         
-        # 2. Создаем "фабрику" (без аргументов)
-        factory = AstrologicalSubjectFactory()
-        
-        # 3. Получаем рассчитанный объект ("субъект"), используя .create_subject()
-        subject = factory.create_subject(
+        # 2. Создаем "фабрику", ПЕРЕДАВАЯ все аргументы в конструктор
+        factory = AstrologicalSubjectFactory(
             name="Transits", 
             day=tomorrow_date.day, 
             month=tomorrow_date.month, 
@@ -48,6 +45,10 @@ async def cache_daily_transits():
             city="London", 
             nation="UK"
         )
+        
+        # 3. Получаем рассчитанный объект ("субъект") из СВОЙСТВА .subject
+        subject = factory.subject
+        
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         # 4. Собираем данные в словарь
