@@ -1,0 +1,10 @@
+python-telegram-bot==21.0.1
+python-dotenv
+aiosqlite
+apscheduler
+SQLAlchemy
+pytz
+beautifulsoup4
+aiohttp
+tenacity
+nest-asyncio
