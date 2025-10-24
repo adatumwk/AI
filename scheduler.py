@@ -32,13 +32,13 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
         
-        # --- ИСПРАВЛЕНИЕ ЛОГИКИ ---
+        # --- ИСПРАВЛЕНИЕ ЛОГИКИ (v5.0.2 API) ---
         
         # 2. Создаем "фабрику" (без аргументов)
         factory = AstrologicalSubjectFactory()
         
-        # 3. Получаем рассчитанный объект ("субъект"), передавая аргументы сюда
-        subject = factory.get_subject(
+        # 3. Получаем рассчитанный объект ("субъект"), ВЫЗЫВАЯ сам объект factory
+        subject = factory(
             name="Transits", 
             day=tomorrow_date.day, 
             month=tomorrow_date.month, 
