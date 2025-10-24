@@ -8,9 +8,10 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2) ---
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (v5.0.2 - ФИНАЛ) ---
 from kerykeion.astrological_subject_factory import AstrologicalSubjectFactory
-from kerykeion.schemas.requests_models import AstrologicalSubjectRequest
+from kerykeion.kr_types.schemas import AstrologicalSubjectRequest
+# --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
@@ -33,7 +34,7 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
         
-        # --- ИСПРАВЛЕНИЕ ЛОГИКИ (v5.0.2 API - ФИНАЛ) ---
+        # --- ИСПРАВЛЕННАЯ ЛОГИКА (v5.0.2 API) ---
         
         # 2. Создаем "объект запроса" pydantic
         request_data = AstrologicalSubjectRequest(
