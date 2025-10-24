@@ -1,19 +1,75 @@
 import logging
 import pytz
+import json
+import aiosqlite
+from datetime import date, timedelta
 from telegram import Bot
 from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-# from datetime import datetime # ИСПРАВЛЕНИЕ: Убран ненужный импорт
+
+# --- Новые импорты для Flatlib ---
+from flatlib.chart import Chart
+from flatlib.datetime import Datetime
+from flatlib.geopos import GeoPos
 
 from config import BOT_TOKEN
-from constants import DB_JOBS, RUSSIAN_SIGNS
+# --- Измененный импорт констант ---
+from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
 from database import get_user_data, save_user_data
 from horoscope_fetcher import get_horoscope_from_db
 
 logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler(jobstores={'default': SQLAlchemyJobStore(url=DB_JOBS)})
+
+# --- НОВАЯ ФУНКЦИЯ КЭШИРОВАНИЯ ТРАНЗИТОВ ---
+async def cache_daily_transits():
+    """
+    Рассчитывает транзиты на завтра и сохраняет их в кэш (БД).
+    """
+    try:
+        logger.info("[КЭШЕР]: Начинаю кэширование транзитов на завтра...")
+        
+        # 1. Получаем дату "завтра"
+        tomorrow_date = date.today() + timedelta(days=1)
+        tomorrow_str = tomorrow_date.strftime('%Y/%m/%d')
+        
+        # 2. Рассчитываем транзиты (используем универсальное время и место)
+        # 12:00 UTC, нулевые координаты. Это стандарт для транзитов.
+        dt = Datetime(tomorrow_str, '12:00', '+00:00')
+        pos = GeoPos('0', '0') # Нулевые широта и долгота
+        chart = Chart(dt, pos)
+        
+        # 3. Собираем данные в словарь
+        planet_data = {}
+        
+        # Собираем положения 10 основных планет
+        planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
+        for p_name in planets:
+            # Используем getattr, чтобы получить chart.Sun, chart.Moon и т.д.
+            planet_obj = getattr(chart, p_name) 
+            planet_data[p_name] = {
+                "sign": planet_obj.sign,       # Знак (напр., 'Aries')
+                "lon": round(planet_obj.lon, 2) # Градус в знаке
+            }
+            
+        # 4. Превращаем в JSON и сохраняем в БД
+        data_json = json.dumps(planet_data)
+        
+        async with aiosqlite.connect(DB_HOROSCOPES) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO transits_cache (transit_date, planet_data) VALUES (?, ?)",
+                (tomorrow_date, data_json)
+            )
+            await db.commit()
+            
+        logger.info(f"[КЭШЕР]: Транзиты на {tomorrow_date} успешно закэшированы.")
+        
+    except Exception as e:
+        logger.error(f"[КЭШЕР]: Ошибка при кэшировании транзитов: {e}", exc_info=True)
+# --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
+
 
 def get_pytz_timezone(tz_str: str):
     """УЛУЧШЕНИЕ: Более надежная конвертация строки UTC в объект pytz."""
@@ -33,8 +89,6 @@ def format_horoscope_message(horoscope_data, sign_name, h_type_rus):
     if not horoscope_data or not horoscope_data.get('general_text'):
         return f"К сожалению, {h_type_rus} гороскоп для знака {sign_name_rus} еще не готов. Попробуйте позже."
 
-    # ИСПРАВЛЕНИЕ: Убрано strptime. 
-    # 'date' теперь приходит из БД как объект date, благодаря detect_types.
     horoscope_date = horoscope_data['date']
     
     if h_type_rus == 'ежедневный':
