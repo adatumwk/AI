@@ -1,6 +1,6 @@
 import logging
 import asyncio
-import nest_asyncio # ИСПРАВЛЕНИЕ: Возвращаем nest_asyncio
+import nest_asyncio 
 import os
 from telegram import Update, BotCommand
 from telegram.ext import (
@@ -12,12 +12,16 @@ from telegram.warnings import PTBUserWarning
 
 filterwarnings(action="ignore", message=r".*CallbackQueryHandler", category=PTBUserWarning)
 
-nest_asyncio.apply() # ИСПРАВЛЕНИЕ: Возвращаем nest_asyncio.apply()
+nest_asyncio.apply() 
 
 from config import BOT_TOKEN
 from keyboards import *
 from database import init_user_db, get_user_data, save_user_data
-from scheduler import scheduler, update_user_jobs, format_horoscope_message
+
+# --- ИЗМЕНЕННЫЙ ИМПОРТ ИЗ SCHEDULER ---
+from scheduler import scheduler, update_user_jobs, format_horoscope_message, cache_daily_transits
+# --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
 from horoscope_fetcher import get_horoscope_from_db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -42,11 +46,9 @@ async def start_command(update: Update, context: CallbackContext):
         "language_code": user.language_code,
         "is_premium": getattr(user, 'is_premium', False) # getattr для совместимости
     }
-    # Сразу сохраняем или обновляем основную информацию
     await save_user_data(user.id, **user_info)
 
     user_data_db = await get_user_data(user.id)
-    # Проверяем, прошел ли пользователь полную настройку (выбрал знак зодиака)
     if user_data_db and user_data_db.get('zodiac_sign'):
         await update.message.reply_text("✨Главное меню:", reply_markup=get_main_menu_keyboard())
         return ConversationHandler.END
@@ -64,7 +66,6 @@ async def show_main_menu(update: Update, context: CallbackContext, text: str = "
         await update.message.reply_text(text, reply_markup=get_main_menu_keyboard())
     return ConversationHandler.END
 
-# Новое: Команды для управления подпиской
 async def stop_command(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     await save_user_data(user_id, is_active=False)
@@ -216,6 +217,20 @@ async def main():
     if not os.path.exists('data'): os.makedirs('data')
     await init_user_db()
     
+    # --- ДОБАВЛЯЕМ ЗАДАЧУ КЭШИРОВАНИЯ ---
+    # Добавляем задачу: Запускать каждый день в 00:05 (5 минут после полуночи)
+    scheduler.add_job(
+        cache_daily_transits,
+        'cron',
+        hour=0,
+        minute=5,
+        id='daily_transit_cacher',
+        misfire_grace_time=60*10 # 10 минут на случай, если бот спал
+    )
+    # Запускаем один раз сразу при старте бота, чтобы не ждать полуночи
+    await cache_daily_transits()
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     scheduler.start()
 
     application = Application.builder().token(BOT_TOKEN).concurrent_updates(True).build()
@@ -273,7 +288,6 @@ async def main():
     application.add_handler(CallbackQueryHandler(horoscope_type_handler, pattern='^h_type_'))
     application.add_handler(CommandHandler('menu', lambda u, c: u.message.reply_text("Главное меню:", reply_markup=get_main_menu_keyboard())))
     
-    # Новое: Добавляем обработчики для /stop и /subscribe
     application.add_handler(CommandHandler('stop', stop_command))
     application.add_handler(CommandHandler('subscribe', subscribe_command))
 
@@ -283,8 +297,6 @@ async def main():
     except KeyboardInterrupt:
         logger.info("Получен сигнал прерывания. Остановка бота...")
     finally:
-        # ИСПРАВЛЕНИЕ: Оборачиваем application.stop() в try/except,
-        # чтобы избежать ошибки, если бот упал до полного запуска.
         try:
             await application.stop()
         except RuntimeError as e:
