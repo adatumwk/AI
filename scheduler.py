@@ -8,8 +8,8 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ KERYKEION ---
-from kerykeion.Calculator import Calculator
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ (с маленькой 'c') ---
+from kerykeion.calculator import Calculator
 
 from config import BOT_TOKEN
 from constants import DB_JOBS, RUSSIAN_SIGNS, DB_HOROSCOPES
@@ -36,7 +36,6 @@ async def cache_daily_transits():
         # Используем Лондон (UTC) и 12:00 дня как стандарт.
         # Имя "Transits" - просто заглушка.
         
-        # --- ИСПРАВЛЕННОЕ НАЗВАНИЕ КЛАССА ---
         chart = Calculator(
             "Transits", 
             tomorrow_date.day, 
@@ -108,7 +107,7 @@ def format_horoscope_message(horoscope_data, sign_name, h_type_rus):
         date_display = horoscope_date.strftime('%Y-%m-%d')
         
     message_parts = [
-        f"🔮 *{h_type_rus.capitalize()} гороскоп для знака {sign_name_rus} на {date_display}*\n",
+        f"🔮 *{h_type_rus.capitalize()} гороскоп для знака {sign_name_rus} на {display_date}*\n",
         f"*{horoscope_data.get('general_text', 'Нет данных.')}*\n"
     ]
 
