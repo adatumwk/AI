@@ -8,7 +8,7 @@ from telegram.error import Forbidden
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
-# --- ИСПРАВЛЕННЫЙ ИМПОРТ (Основан на твоем 'ls') ---
+# --- Наш правильный импорт ---
 from kerykeion.astrological_subject_factory import AstrologicalSubjectFactory
 
 from config import BOT_TOKEN
@@ -32,9 +32,13 @@ async def cache_daily_transits():
         # 1. Получаем дату "завтра"
         tomorrow_date = date.today() + timedelta(days=1)
         
-        # 2. Создаем "фабрику" для расчета транзитов.
-        # Используем Лондон (UTC) и 12:00 дня как стандарт.
-        factory = AstrologicalSubjectFactory(
+        # --- ИСПРАВЛЕНИЕ ЛОГИКИ ---
+        
+        # 2. Создаем "фабрику" (без аргументов)
+        factory = AstrologicalSubjectFactory()
+        
+        # 3. Получаем рассчитанный объект ("субъект"), передавая аргументы сюда
+        subject = factory.get_subject(
             name="Transits", 
             day=tomorrow_date.day, 
             month=tomorrow_date.month, 
@@ -44,9 +48,7 @@ async def cache_daily_transits():
             city="London", 
             nation="UK"
         )
-        
-        # 3. Получаем рассчитанный объект ("субъект")
-        subject = factory.get_subject()
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         # 4. Собираем данные в словарь
         planet_data = {}
